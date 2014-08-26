@@ -1,0 +1,63 @@
+为了避免出现重复数据，在现有的表上面添加unique constraint，而又不影响现有数据。
+
+1. SQL> alter table msi_wdr_input add constraint UK_MSI_WDR_INPUT unique(msifilesiteid,postdate,linetype,value001,value002,value003,value004) enable novalidate;
+ 
+alter table msi_wdr_input add constraint UK_MSI_WDR_INPUT unique(msifilesiteid,postdate,linetype,value001,value002,value003,value004) enable novalidate
+ 
+ORA-02299: cannot validate (SSERVICE.UK_MSI_WDR_INPUT) - duplicate keys found
+
+因为数据表中存在重复数据，导致了unique constraint 没有建立成功。
+
+2. SQL> alter table msi_wdr_input add constraint UK_MSI_WDR_INPUT unique(msifilesiteid,postdate,linetype,value001,value002,value003,value004) deferrable enable novalidate;
+ 
+Table altered
+
+加上 deferrable enable novalidate (延迟约束验证)，就可以对原数据不做验证，在以后插入数据时，做唯一性验证。
+
+
+enable/disable validate/novalidate
+以上两项都是对约束的设置选项
+
+enable/disable   
+针对新插入/更新的数据进行/不进行约束验证，默认enable。
+enable时，如果是主键或唯一键，首先查看列上是否有索引，如果有就用。没有就新建。
+disable时，如果是主键或唯一键，会删除enable时新建的索引，但自定义索引不受影响。
+
+validate/novalidate 
+针对已有数据进行/不进行约束验证，默认validate
+
+①enable validate
+对新数据做验证，同时保证旧数据验证通过。如果旧数据违反约束，则必须修改或删除这部分数据，否则不能创建约束。
+
+②enable novalidate
+对新数据做验证，同时忽略旧数据的约束合法性。如果旧数据违反主键/唯一键约束，并且事先没有定义该列的非唯一索引(nonunique index)，则本设置不能通过。因为在enable时，系统会新建一个unique index，而旧数据显然不能支持这一操作。所以要使本设置生效，必须对违反主键/唯一键约束的列上添加nonunique index。方法是create index <index_name> on <table>(<column>)。
+
+③disable validate
+保证已有数据的约束合法性，同时禁止表的insert/update/delete操作。
+
+④disable novalidate
+忽略约束合法性
+
+以上约束设置状态的修改方法
+(1) 新建约束时的设置
+alter table add constraint EMP_PK primary key(employee_id) enable/disable validate/novalidate
+(2) 约束存在情况下的修改
+alter table enable/disable validate/novalidate constraint <constraint_name>
+
+
+
+deferrable/no deferrable
+约束校验是/否可延时。
+
+deferred/immediate
+在deferrable情况下，可设置是否延时校验。deferred表示在事务提交时进行约束校验，如果有一条语句验证失败，则整个事务回滚。immediate表示在每条SQL语句后进行。
+在no deferrable情况下
+
+修改约束校验延时设置，使用
+(1) 在约束存在情况下设置
+alter table TESTTAB drop constraint TEST_PK cascade;
+alter table TESTTAB add constraint TEST_PK primary key (EMPLOYEE_ID) deferrable;
+在约束为deferrable的情况下，使用以下语句修改状态
+set constraint <constraint_name> deferred/immediate;
+(2) 初始化设置
+alter table TESTTAB add constraint deferrable initially immediate/deferred;
